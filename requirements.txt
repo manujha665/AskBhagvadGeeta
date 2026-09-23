@@ -1,0 +1,9 @@
+anthropic>=1.8
+numpy
+sounddevice
+soundfile
+pynput
+rumps
+pyobjc-framework-Cocoa
+mlx-whisper; platform_machine == "arm64"
+faster-whisper; platform_machine != "arm64"
