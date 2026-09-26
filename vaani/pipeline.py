@@ -26,6 +26,17 @@ class Pipeline:
         log_dictation(self.cfg.notes_dir, text, app_name)
         return text
 
+    def command(self, audio: Path, app_name: str, selection: str) -> str:
+        """Spoken instruction applied to the selected text (or written fresh at the cursor)."""
+        instruction = " ".join(s.text for s in self.transcriber.transcribe(audio)).strip()
+        if not instruction:
+            return ""
+        if not self.cfg.cleanup_with_claude:
+            raise RuntimeError("Command mode needs Claude; set cleanup_with_claude = true")
+        text = self.brain.command(instruction, selection, app_name)
+        log_dictation(self.cfg.notes_dir, text, f"{app_name} · command: {instruction}")
+        return text
+
     def voice_note(self, audio: Path) -> Path | None:
         transcript = format_transcript(self.transcriber.transcribe(audio))
         if not transcript:

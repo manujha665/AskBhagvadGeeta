@@ -1,10 +1,11 @@
 # Vaani — voice-to-text for your Mac, in Hindi, English and Hinglish
 
-Vaani lives in the macOS menu bar and does three things:
+Vaani lives in the macOS menu bar and does four things:
 
 | Mode | How | What you get |
 |---|---|---|
 | **Dictate anywhere** | Hold **Right Option**, speak, release | Clean text pasted into whatever app is in front (Mail, Slack, WhatsApp, Notion, Docs). Filler words are removed and self-corrections are applied ("5 baje, nahi 6 baje" → "6 baje"). Tone follows the app you're typing into. |
+| **Command mode** | Select text, hold **Right ⌘**, say what you want, release | The selection is rewritten in place: "make this more formal", "isko Hindi mein translate karo", "turn this into bullet points", "shorten to two lines". With nothing selected, it writes new text at the cursor: "write a polite reply saying I'll send the deck on Monday". |
 | **Voice notes** | Menu → *Start voice note* | A markdown note with a title, summary, key points, action items, and "ideas worth expanding" (content angles). |
 | **Call notes** | Menu → *Start recording call* | Works with Zoom, Meet, Teams or WhatsApp calls. It records you and the other side separately, so the transcript says who spoke ("Me" / "Them"). Minutes include decisions, action items, **numbers mentioned**, open questions, and a draft follow-up email. |
 
@@ -58,7 +59,8 @@ Create `~/.vaani/config.toml` (every line is optional):
 ```toml
 language = "hi"            # "auto", "hi" or "en". "hi" is most reliable for Hinglish
 output_script = "roman"    # "as-spoken", "roman" (Hinglish) or "devanagari"
-hotkey = "alt_r"           # alt_r = Right Option; also cmd_r, ctrl_r, f13 …
+hotkey = "alt_r"           # dictation: alt_r = Right Option; also cmd_r, ctrl_r, f13 …
+command_hotkey = "cmd_r"   # command mode: Right Command
 vocabulary = ["Nifty", "SIP", "Vatayan Labs", "EBITDA", "HDFC"]  # names Whisper mishears
 notes_dir = "~/Documents/Vaani"
 whisper_backend = "mlx"    # use "faster-whisper" on Intel Macs
@@ -66,6 +68,13 @@ cleanup_with_claude = true
 ```
 
 **Tip:** short clips in "auto" mode sometimes get detected as the wrong language. If you mostly speak Hinglish, set `language = "hi"` and pick your `output_script`.
+
+### Command mode tips
+
+- **⌘Z undoes it.** The result is an ordinary paste, so the app's undo brings your original text back.
+- Pressing another key while holding Right ⌘ (e.g. ⌘C with your right hand) is treated as a normal shortcut, and nothing is recorded.
+- Some editors (VS Code, for example) copy the whole current line when nothing is selected, so command mode will rewrite that line. Select explicitly in those apps.
+- Command mode always uses Claude, so it's off when `cleanup_with_claude = false`.
 
 ## How it works
 
@@ -90,13 +99,12 @@ hotkey / menu ─► Recorder (sounddevice → WAV on disk)
 | `vaani/brain.py` | Claude prompts |
 | `vaani/pipeline.py` | The three workflows, shared by the app and CLI |
 | `vaani/storage.py` | Markdown output |
-| `vaani/mac.py` | Frontmost app, paste, notifications |
+| `vaani/mac.py` | Frontmost app, reading the selection, paste, notifications |
 
 Run the tests with `pip install -r requirements-dev.txt && pytest`.
 
 ## Roadmap
 
-- **Command mode**: select text, hold the hotkey, and say "make this more formal" or "translate to Hindi".
 - **Live captions** during calls (streaming transcription).
 - **Auto-detect calls**: start recording when Zoom or Meet opens the mic.
 - **Native Swift app** using ScreenCaptureKit, so calls can be captured without BlackHole, and a signed `.app` you can share.

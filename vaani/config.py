@@ -27,6 +27,8 @@ class Config:
 
     # Any pynput Key name: alt_r (Right Option), cmd_r, ctrl_r, f13 ...
     hotkey: str = "alt_r"
+    # Hold to speak an instruction that edits the selected text (or writes new text).
+    command_hotkey: str = "cmd_r"
     # Substring of the input device name; None = system default mic.
     mic_device: str | None = None
     # Virtual device that carries the other side of a call (see README).
@@ -49,4 +51,6 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
         if key == "notes_dir":
             value = Path(value).expanduser()
         setattr(cfg, key, value)
+    if cfg.hotkey == cfg.command_hotkey:
+        raise ValueError("hotkey and command_hotkey must be different keys")
     return cfg

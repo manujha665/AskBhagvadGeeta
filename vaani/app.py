@@ -1,4 +1,4 @@
-"""Menu-bar app: hold a key to dictate anywhere, plus voice notes and call recording."""
+"""Menu-bar app: hold a key to dictate or give a command anywhere, plus voice notes and calls."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from .config import Config
 from .pipeline import Pipeline
 from .recorder import Recorder, find_device
 
-IDLE, LISTENING, THINKING, NOTE, MEETING = "🎙", "🔴", "⏳", "📝", "📞"
+IDLE, LISTENING, COMMAND, THINKING, NOTE, MEETING = "🎙", "🔴", "✨", "⏳", "📝", "📞"
 MIN_PRESS_SECONDS = 0.3  # ignore accidental taps of the hotkey
 
 
@@ -28,7 +28,9 @@ class VaaniApp(rumps.App):
         self.tmp = Path(tempfile.mkdtemp(prefix="vaani-"))
         self.status = IDLE
         self.busy = threading.Lock()  # one recording at a time
-        self.dictation: Recorder | None = None
+        self.dictation: Recorder | None = None  # the hold-to-talk recording
+        self.held_key = None
+        self.interrupted = False
         self.note: Recorder | None = None
         self.meeting: tuple[Recorder, Recorder | None] | None = None
         self.pressed_at = 0.0
@@ -37,13 +39,17 @@ class VaaniApp(rumps.App):
         self.meeting_item = rumps.MenuItem("Start recording call", callback=self.toggle_meeting)
         self.menu = [
             rumps.MenuItem(f"Hold {cfg.hotkey} to dictate"),
+            rumps.MenuItem(f"Hold {cfg.command_hotkey} to give a command"),
             None,
             self.note_item,
             self.meeting_item,
             None,
             rumps.MenuItem("Open notes folder", callback=self.open_notes),
         ]
-        self.hotkey = getattr(keyboard.Key, cfg.hotkey)
+        self.hotkeys = {
+            getattr(keyboard.Key, cfg.hotkey): "dictate",
+            getattr(keyboard.Key, cfg.command_hotkey): "command",
+        }
         keyboard.Listener(on_press=self.on_press, on_release=self.on_release).start()
         # rumps widgets must only be touched on the main thread, so a timer mirrors state.
         rumps.Timer(self.sync_title, 0.2).start()
@@ -52,38 +58,46 @@ class VaaniApp(rumps.App):
         if self.title != self.status:
             self.title = self.status
 
-    # ---- push-to-talk dictation -------------------------------------------------
+    # ---- push-to-talk: dictation and command mode ------------------------------
 
     def on_press(self, key) -> None:
-        if key != self.hotkey or self.dictation is not None:
+        if self.held_key is not None:
+            if key != self.held_key:
+                self.interrupted = True  # a shortcut like ⌘C, not someone talking
             return
-        if not self.busy.acquire(blocking=False):
+        mode = self.hotkeys.get(key)
+        if mode is None or not self.busy.acquire(blocking=False):
             return
-        self.pressed_at = time.monotonic()
-        recorder = Recorder(self.tmp / "dictation.wav", find_device(self.cfg.mic_device))
+        recorder = Recorder(self.tmp / "hotkey.wav", find_device(self.cfg.mic_device))
         if self._start(recorder):
-            self.dictation = recorder
-            self.status = LISTENING
+            self.dictation, self.held_key, self.interrupted = recorder, key, False
+            self.pressed_at = time.monotonic()
+            self.status = LISTENING if mode == "dictate" else COMMAND
 
     def on_release(self, key) -> None:
-        if key != self.hotkey or self.dictation is None:
+        if key != self.held_key:
             return
-        recorder, self.dictation = self.dictation, None
+        recorder, self.dictation, self.held_key = self.dictation, None, None
         audio = recorder.stop()
-        if time.monotonic() - self.pressed_at < MIN_PRESS_SECONDS:
+        if self.interrupted or time.monotonic() - self.pressed_at < MIN_PRESS_SECONDS:
             self.finish()
             return
         app_name = mac.frontmost_app()
         self.status = THINKING
-        threading.Thread(target=self._dictate, args=(audio, app_name), daemon=True).start()
+        args = (self.hotkeys[key], audio, app_name)
+        threading.Thread(target=self._handle_speech, args=args, daemon=True).start()
 
-    def _dictate(self, audio: Path, app_name: str) -> None:
+    def _handle_speech(self, mode: str, audio: Path, app_name: str) -> None:
         try:
-            text = self.pipeline.dictation(audio, app_name)
+            if mode == "dictate":
+                text = self.pipeline.dictation(audio, app_name)
+            else:
+                # Read the selection before anything else touches the clipboard.
+                text = self.pipeline.command(audio, app_name, mac.copy_selection())
             if text:
-                mac.paste_text(text)
+                mac.paste_text(text)  # replaces the selection when there is one
         except Exception as e:  # keep the app alive; show what went wrong
-            mac.notify("Vaani: dictation failed", str(e)[:200])
+            mac.notify(f"Vaani: {mode} failed", str(e)[:200])
         finally:
             self.finish()
 
