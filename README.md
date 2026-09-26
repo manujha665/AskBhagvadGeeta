@@ -19,20 +19,25 @@ Requires macOS, Python 3.11+ and Homebrew. Apple Silicon (M1 or later) is strong
 
 ```bash
 brew install python@3.12 portaudio ffmpeg
-git clone <this repo> vaani && cd vaani
+git clone -b claude/macos-transcription-app-i4wzt4 https://github.com/manujha665/AskBhagvadGeeta.git vaani
+cd vaani
 python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 export ANTHROPIC_API_KEY=sk-ant-...        # put this in ~/.zshrc too
+python -m vaani doctor                     # checks everything below and tells you what's missing
 python -m vaani
 ```
 
+To update later: `cd vaani && git pull && source .venv/bin/activate && pip install -r requirements.txt`.
+
 A 🎙 appears in the menu bar. The first dictation downloads the Whisper model (~1.5 GB, one time only).
 
-**Permissions** (System Settings → Privacy & Security). Grant each of these to *Terminal* (or iTerm, or whichever app runs Vaani):
-- **Microphone**: to record.
-- **Accessibility** and **Input Monitoring**: to detect the hotkey and paste text.
+**Permissions.** macOS gives these to the *app that runs Python* (Terminal, iTerm, VS Code, Cursor, and so on), not to Vaani itself. In System Settings → Privacy & Security, turn that app on under:
+- **Microphone**: to record. If this is off, macOS records pure silence without any error.
+- **Input Monitoring**: to see the hotkeys. If this is off, holding Right ⌘ or Right ⌥ does nothing.
+- **Accessibility**: to read the selection and paste.
 
-Restart Vaani after granting them.
+Then **quit that app completely with ⌘Q and reopen it.** Permissions don't apply to a window that was already open. `python -m vaani doctor` checks all three, including a live test of both hotkeys.
 
 ### Capturing the other side of a call
 
@@ -59,7 +64,7 @@ Create `~/.vaani/config.toml` (every line is optional):
 ```toml
 language = "hi"            # "auto", "hi" or "en". "hi" is most reliable for Hinglish
 output_script = "roman"    # "as-spoken", "roman" (Hinglish) or "devanagari"
-hotkey = "alt_r"           # dictation: alt_r = Right Option; also cmd_r, ctrl_r, f13 …
+hotkey = "alt_r"           # dictation: alt_r = Right Option; also cmd_r, ctrl_r, shift_r, fn, f13–f20
 command_hotkey = "cmd_r"   # command mode: Right Command
 vocabulary = ["Nifty", "SIP", "Vatayan Labs", "EBITDA", "HDFC"]  # names Whisper mishears
 notes_dir = "~/Documents/Vaani"
@@ -99,6 +104,8 @@ hotkey / menu ─► Recorder (sounddevice → WAV on disk)
 | `vaani/brain.py` | Claude prompts |
 | `vaani/pipeline.py` | The three workflows, shared by the app and CLI |
 | `vaani/storage.py` | Markdown output |
+| `vaani/hotkeys.py` | Global hotkeys and keystrokes via Quartz event taps |
+| `vaani/doctor.py` | Setup self-check |
 | `vaani/mac.py` | Frontmost app, reading the selection, paste, notifications |
 
 Run the tests with `pip install -r requirements-dev.txt && pytest`.

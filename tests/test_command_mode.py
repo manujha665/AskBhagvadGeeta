@@ -1,6 +1,6 @@
 """Command mode: prompts, pipeline, selection capture, and hotkey handling.
 
-macOS-only modules (AppKit, pynput, rumps) are replaced with small fakes so this runs anywhere.
+macOS-only modules (AppKit, Quartz, rumps) are replaced with small fakes so this runs anywhere.
 """
 
 import sys
@@ -134,8 +134,8 @@ def test_paste_restores_previous_clipboard(fake_mac):
 
 # ---- hotkey handling in the menu-bar app --------------------------------------------
 
-class Key:
-    alt_r, cmd_r, cmd, shift = "alt_r", "cmd_r", "cmd", "shift"
+class Key:  # macOS virtual key codes
+    alt_r, cmd_r, cmd, c = 0x3D, 0x36, 0x37, 0x08
 
 
 @pytest.fixture
@@ -144,16 +144,12 @@ def app(monkeypatch, tmp_path):
     rumps.App = type("App", (), {"__init__": lambda self, *a, **k: None})
     rumps.MenuItem = lambda *a, **k: types.SimpleNamespace(title=a[0] if a else "")
     rumps.Timer = lambda *a: types.SimpleNamespace(start=lambda: None)
-    keyboard = types.ModuleType("pynput.keyboard")
-    keyboard.Key = Key
-    keyboard.Listener = lambda **k: types.SimpleNamespace(start=lambda: None)
-    pynput = types.ModuleType("pynput")
-    pynput.keyboard = keyboard
     monkeypatch.setitem(sys.modules, "rumps", rumps)
-    monkeypatch.setitem(sys.modules, "pynput", pynput)
-    monkeypatch.setitem(sys.modules, "pynput.keyboard", keyboard)
     monkeypatch.delitem(sys.modules, "vaani.app", raising=False)
     import vaani.app as app_module
+
+    monkeypatch.setattr(app_module, "HotkeyListener",
+                        lambda *a, **k: types.SimpleNamespace(start=lambda: None))
 
     class FakeRecorder:
         def __init__(self, path, device=None):
@@ -206,7 +202,7 @@ def test_holding_dictation_key_still_dictates(app):
 def test_keyboard_shortcut_with_hotkey_is_not_treated_as_speech(app):
     vaani_app, _, calls, pasted = app
     vaani_app.on_press(Key.cmd_r)
-    vaani_app.on_press("c")          # user pressed ⌘C with the right Command key
+    vaani_app.on_press(Key.c)        # user pressed ⌘C with the right Command key
     vaani_app.on_release(Key.cmd_r)
     assert calls == [] and pasted == []
     assert not vaani_app.busy.locked()

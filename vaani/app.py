@@ -9,10 +9,10 @@ import time
 from pathlib import Path
 
 import rumps
-from pynput import keyboard
 
 from . import mac
 from .config import Config
+from .hotkeys import HotkeyListener, keycode_for, label_for
 from .pipeline import Pipeline
 from .recorder import Recorder, find_device
 
@@ -38,8 +38,8 @@ class VaaniApp(rumps.App):
         self.note_item = rumps.MenuItem("Start voice note", callback=self.toggle_note)
         self.meeting_item = rumps.MenuItem("Start recording call", callback=self.toggle_meeting)
         self.menu = [
-            rumps.MenuItem(f"Hold {cfg.hotkey} to dictate"),
-            rumps.MenuItem(f"Hold {cfg.command_hotkey} to give a command"),
+            rumps.MenuItem(f"Hold {label_for(cfg.hotkey)} to dictate"),
+            rumps.MenuItem(f"Hold {label_for(cfg.command_hotkey)} to give a command"),
             None,
             self.note_item,
             self.meeting_item,
@@ -47,10 +47,11 @@ class VaaniApp(rumps.App):
             rumps.MenuItem("Open notes folder", callback=self.open_notes),
         ]
         self.hotkeys = {
-            getattr(keyboard.Key, cfg.hotkey): "dictate",
-            getattr(keyboard.Key, cfg.command_hotkey): "command",
+            keycode_for(cfg.hotkey): "dictate",
+            keycode_for(cfg.command_hotkey): "command",
         }
-        keyboard.Listener(on_press=self.on_press, on_release=self.on_release).start()
+        HotkeyListener(self.on_press, self.on_release,
+                       on_error=lambda msg: mac.notify("Vaani", msg)).start()
         # rumps widgets must only be touched on the main thread, so a timer mirrors state.
         rumps.Timer(self.sync_title, 0.2).start()
 

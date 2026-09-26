@@ -1,6 +1,7 @@
 """Entry point.
 
     python -m vaani                         menu-bar app
+    python -m vaani doctor                  check permissions, mic, hotkeys, API key
     python -m vaani devices                 list microphones / virtual devices
     python -m vaani file call.m4a --meeting notes from an existing recording
 """
@@ -17,6 +18,7 @@ from .config import load_config
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="vaani")
     sub = parser.add_subparsers(dest="command")
+    sub.add_parser("doctor", help="check permissions, mic, hotkeys and setup")
     sub.add_parser("devices", help="list audio input devices")
     f = sub.add_parser("file", help="transcribe an existing audio/video file")
     f.add_argument("path", type=Path)
@@ -26,6 +28,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     cfg = load_config()
+
+    if args.command == "doctor":
+        from .doctor import run as doctor
+
+        return doctor(cfg)
 
     if args.command == "devices":
         from .recorder import list_input_devices

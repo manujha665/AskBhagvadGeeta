@@ -25,7 +25,7 @@ class Config:
     # Turn off to paste the raw Whisper transcript with no Claude call (offline mode).
     cleanup_with_claude: bool = True
 
-    # Any pynput Key name: alt_r (Right Option), cmd_r, ctrl_r, f13 ...
+    # alt_r (Right Option), cmd_r, ctrl_r, shift_r, fn, f13-f20 (see hotkeys.KEYCODES)
     hotkey: str = "alt_r"
     # Hold to speak an instruction that edits the selected text (or writes new text).
     command_hotkey: str = "cmd_r"
@@ -51,6 +51,9 @@ def load_config(path: Path = CONFIG_PATH) -> Config:
         if key == "notes_dir":
             value = Path(value).expanduser()
         setattr(cfg, key, value)
+    from .hotkeys import keycode_for
+
+    keycode_for(cfg.hotkey), keycode_for(cfg.command_hotkey)  # raises on unknown names
     if cfg.hotkey == cfg.command_hotkey:
         raise ValueError("hotkey and command_hotkey must be different keys")
     return cfg

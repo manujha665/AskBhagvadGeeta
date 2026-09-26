@@ -36,12 +36,9 @@ def _set_clipboard(board, text: str | None) -> None:
 
 
 def _press_cmd(letter: str) -> None:
-    from pynput.keyboard import Controller, Key
+    from .hotkeys import press_cmd
 
-    keyboard = Controller()
-    with keyboard.pressed(Key.cmd):
-        keyboard.press(letter)
-        keyboard.release(letter)
+    press_cmd(letter)
 
 
 def copy_selection(timeout: float = 0.5) -> str:
